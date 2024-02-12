@@ -1,0 +1,150 @@
+[tool.poetry]
+name = "exchange_rates"
+version = "0.1.0"
+description = ""
+authors = ["y.romanchuk <y.romanchuk@bi.zone>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+fastapi = "^0.109.2"
+pydantic = "^2.6.1"
+sqlalchemy = "^2.0.25"
+alembic = "^1.13.1"
+pydantic-settings = "^2.1.0"
+yarl = "^1.9.4"
+loguru = "^0.7.2"
+uvicorn = {extras = ["standard"], version = "^0.27.1"}
+gunicorn = "^21.2.0"
+asyncpg = "^0.29.0"
+websockets = "^12.0"
+httpx = "^0.26.0"
+taskiq-aio-pika = "^0.4.0"
+taskiq = "^0.11.0"
+fastapi-cache2 = {extras = ["redis"], version = "^0.2.1"}
+
+
+[tool.poetry.group.dev.dependencies]
+pre-commit = "^3.6.0"
+mypy = "^1.8.0"
+ruff = "^0.2.1"
+locust = "^2.22.0"
+types-redis = "^4.6.0.20240106"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.ruff]
+# Assume Python 3.11
+target-version = "py311"
+line-length = 120
+
+[tool.ruff.lint]
+
+select = [
+    "F", # pyflakes
+    "E", # pycodestyle errors
+    "W", # pycodestyle warnings
+    "C90", # mccabe
+    "I", # isort
+    "N", # pep8-naming
+    "D", # pydocstyle
+    "UP", # pyupgrade
+    "YTT", # flake8-2020
+    "ANN", # flake8-annotations
+    "S", # bandit
+    "BLE", # flake8-blind-except
+    "FBT", # flake8-boolean-trap
+    "B", # flake8-bugbear
+    "A", # flake8-builtins
+    "COM", # flake8-commas
+    "C4", # flake8-comprehensions
+    "DTZ", # flake8-datetimez
+    "T10", # flake8-debugger
+    "EM", # flake8-errmsg
+    "EXE", # flake8-executable
+    "ISC", # flake8-implicit-str-concat
+    "ICN", # flake8-import-conventions
+    "G", # flake8-logging-format
+    "INP", # flake8-no-pep420
+    "PIE", # flake8-pie
+    "T20", # flake8-print
+    "PT", # flake8-pytest-style
+    "Q", # flake8-quotes
+    "RSE", # flake8-raise
+    "RET", # flake8-return
+    "SIM", # flake8-simplify
+    "SLF", # flake8-self
+    "SLOT", # flake8-slots
+    "TID", # flake8-tidy-imports
+    "TCH", # flake8-type-checking
+    "ARG", # flake8-unused-arguments
+    "PTH", # flake8-use-pathlib
+    "ERA", # eradicate
+    "PL", # Pylint
+    "TRY", # tryceratops
+    "PERF", # Perflint
+    "ASYNC", # flake8-async
+]
+
+ignore = [
+    "D1", # игнорируем отсутсвие докстрингов
+    "D203", # исключаем один из конфликтов для докстрингов
+    "D212", # исключаем один из конфликтов для докстрингов
+    "ANN10", # не паникуем если нет аттонаций для self и cls
+    "ANN002", # не будем заствлять анатировать *args
+    "ANN003", # не будем заствлять анатировать *kwargs
+    "PLR0913",
+    # Format https://docs.astral.sh/ruff/formatter/#conflicting-lint-rules
+    "W191", # tab-indentation
+    "E111", # indentation-with-invalid-multiple
+    "E114", # indentation-with-invalid-multiple-comment
+    "E117", # over-indented
+    "D206", # indent-with-spaces
+    "D300", # triple-single-quotes
+    "Q000", # bad-quotes-inline-string
+    "Q001", # bad-quotes-multiline-string
+    "Q002", # bad-quotes-docstring
+    "Q003", # avoidable-escaped-quote
+    "COM812", # missing-trailing-comma
+    "COM819", # prohibited-trailing-comma
+    "ISC001", # single-line-implicit-string-concatenation
+    "ISC002", # multi-line-implicit-string-concatenation
+]
+
+# Exclude a variety of commonly ignored directories.
+exclude = [
+    ".git",
+    ".venv",
+]
+
+
+[tool.ruff.lint.per-file-ignores]
+"**/migrations/*" = [
+    "D415", # чтобы знак препинания не ставить в первой строчке докстринга
+]
+
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+
+[tool.ruff.lint.mccabe]
+# Unlike Flake8, default to a complexity level of 10.
+max-complexity = 10
+
+
+[tool.ruff.lint.pydocstyle]
+# Use Google-style docstrings.
+convention = "google"
+
+[tool.ruff.lint.pep8-naming]
+classmethod-decorators = ["classmethod", "pydantic.field_validator"]
+
+[tool.mypy]
+strict = true
+check_untyped_defs = true
+ignore_missing_imports = true
+exclude = [".*migrations", "tests/*", "performance_test.py"]
+plugins = ["pydantic.mypy", "sqlalchemy.ext.mypy.plugin"]

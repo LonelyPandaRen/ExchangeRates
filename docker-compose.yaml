@@ -1,0 +1,182 @@
+---
+version: "3.8"
+services:
+  db:
+    image: postgres:15.2
+    environment:
+      PGDATA: /var/lib/postgresql/data
+      POSTGRES_HOST: ${POSTGRES_HOST}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -q -U $POSTGRES_USER -d $POSTGRES_DB" ]
+      interval: 3s
+      timeout: 10s
+      retries: 5
+    ports:
+      - "5432:5432"
+    command: postgres -c 'max_connections=1000'
+    volumes:
+      - ./mounts/db:/var/lib/postgresql/data
+    networks:
+      - exchange_rates
+
+  backend:
+    <<: &back
+      <<: &app
+        build:
+          context: .
+          dockerfile: Dockerfile
+        restart: on-failure
+        environment:
+          RMQ_HOST: broker
+          POSTGRES_HOST: db
+          REDIS_URL: redis://localhost:6379/0
+        env_file:
+          - .env
+        volumes:
+          - ./exchange_rates:/code/app
+          - ./mounts/logs:/code/logs
+          - ./mounts/gunicorn:/gunicorn
+        networks:
+          - exchange_rates
+      depends_on:
+        db:
+          condition: service_healthy
+        taskiq:
+          condition: service_started
+        redis:
+          condition: service_healthy
+    command:  gunicorn -c gunicorn.conf.py --workers=4 --log-level DEBUG --preload --access-logfile - --bind 0.0.0.0:8000
+    healthcheck:
+      test: [ "CMD-SHELL", "bash -c 'printf \"GET / HTTP/1.1\n\n\" > /dev/tcp/127.0.0.1/8000; exit $?;'" ]
+      interval: 10s
+      retries: 5
+      timeout: 1s
+    ports:
+      - "8000:8000"
+
+  backend2:
+    <<: *back
+    command: gunicorn -c gunicorn.conf.py --workers=4 --log-level DEBUG --preload --access-logfile - --bind 0.0.0.0:8001
+    healthcheck:
+      test: [ "CMD-SHELL", "bash -c 'printf \"GET / HTTP/1.1\n\n\" > /dev/tcp/127.0.0.1/8001; exit $?;'" ]
+      interval: 10s
+      retries: 5
+      timeout: 1s
+    ports:
+      - "8001:8001"
+  backend3:
+    <<: *back
+    command: gunicorn -c gunicorn.conf.py --workers=4 --log-level DEBUG --preload --access-logfile - --bind 0.0.0.0:8002
+    healthcheck:
+      test: [ "CMD-SHELL", "bash -c 'printf \"GET / HTTP/1.1\n\n\" > /dev/tcp/127.0.0.1/8002; exit $?;'" ]
+      interval: 10s
+      retries: 5
+      timeout: 1s
+    ports:
+      - "8002:8002"
+  backend4:
+    <<: *back
+    command: gunicorn -c gunicorn.conf.py --workers=4 --log-level DEBUG --preload --access-logfile - --bind 0.0.0.0:8003
+    healthcheck:
+      test: [ "CMD-SHELL", "bash -c 'printf \"GET / HTTP/1.1\n\n\" > /dev/tcp/127.0.0.1/8003; exit $?;'" ]
+      interval: 10s
+      retries: 5
+      timeout: 1s
+    ports:
+      - "8003:8003"
+
+  backend5:
+    <<: *back
+    command: gunicorn -c gunicorn.conf.py --workers=4 --log-level DEBUG --preload --access-logfile - --bind 0.0.0.0:8004
+    healthcheck:
+      test: [ "CMD-SHELL", "bash -c 'printf \"GET / HTTP/1.1\n\n\" > /dev/tcp/127.0.0.1/8004; exit $?;'" ]
+      interval: 10s
+      retries: 5
+      timeout: 1s
+    ports:
+      - "8004:8004"
+
+  nginx:
+    image: nginx:latest
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf
+    ports:
+      - "80:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+      backend2:
+        condition: service_healthy
+      backend3:
+        condition: service_healthy
+      backend4:
+        condition: service_healthy
+      backend5:
+        condition: service_healthy
+    networks:
+      - exchange_rates
+
+  migrations:
+    <<: *app
+    command: alembic upgrade head
+    depends_on:
+      db:
+        condition: service_healthy
+
+  update_data:
+    <<: *app
+    working_dir: /code
+    command: python ./exchange_rates/update_data.py
+
+  redis:
+    image: redis
+    ports:
+      - "6379:6379"
+    command: redis-server --save 20 1 --loglevel debug
+    volumes: 
+      - ./mounts/cache:/data
+    healthcheck:
+      test: ["CMD", "redis-cli","ping"]
+      interval: 10s
+      retries: 5
+      timeout: 1s
+
+  broker:
+    image: rabbitmq:3.11.11-management-alpine
+    environment:
+      - RABBITMQ_DEFAULT_PASS=${RMQ_PASS}
+      - RABBITMQ_DEFAULT_USER=${RMQ_USER}
+    ports:
+      - "15672:15672"
+      - "5672:5672"
+    restart: unless-stopped
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 30s
+      timeout: 30s
+      retries: 3
+    networks:
+      - exchange_rates
+
+
+  taskiq:
+    <<: *app
+    command:  taskiq worker -w 30 exchange_rates.task_iq.broker:async_broker exchange_rates.task_iq.tasks
+    depends_on:
+      broker:
+        condition: service_healthy
+
+#  scheduler:
+#    <<: *app
+#    command: taskiq scheduler app.task_iq.broker:scheduler app.task_iq.tasks
+#    depends_on:
+#      broker:
+#        condition: service_healthy
+
+
+networks:
+  exchange_rates:
+    name: exchange_rates
